@@ -78,12 +78,12 @@
     </div>
 
     <!-- 错误提示 -->
-    <div v-if="errorMsg" class="toast toast-error" @click="errorMsg = ''">
+    <div v-if="errorMsg" class="toast toast-error" @click="errorMsg = ''; clearTimeout(toastTimer)">
       {{ errorMsg }}
     </div>
 
     <!-- 成功提示 -->
-    <div v-if="successMsg" class="toast toast-success" @click="successMsg = ''">
+    <div v-if="successMsg" class="toast toast-success" @click="successMsg = ''; clearTimeout(toastTimer)">
       {{ successMsg }}
     </div>
     <!-- 下载进度弹窗 -->
@@ -97,7 +97,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, watch } from 'vue'
 import { uploadHTML } from './api/index.js'
 import FileUpload from './components/FileUpload.vue'
 import TimelineView from './components/TimelineView.vue'
@@ -114,6 +114,17 @@ const errorMsg = ref('')
 const successMsg = ref('')
 const downloadImages_list = ref(null)
 const downloadProgressRef = ref(null)
+
+// Toast 自动消失
+let toastTimer = null
+watch(errorMsg, (val) => {
+  clearTimeout(toastTimer)
+  if (val) toastTimer = setTimeout(() => { errorMsg.value = '' }, 4000)
+})
+watch(successMsg, (val) => {
+  clearTimeout(toastTimer)
+  if (val) toastTimer = setTimeout(() => { successMsg.value = '' }, 2500)
+})
 
 async function handleUpload(file) {
   loading.value = true
