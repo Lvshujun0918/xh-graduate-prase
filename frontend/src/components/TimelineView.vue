@@ -280,6 +280,13 @@ const allDateGroups = computed(() => {
   return groups
 })
 
+// ---- 快速跳转 ----
+const groupRefs = reactive({})
+const activeDate = ref('')
+
+// 展开状态（Map<nodeKey, boolean>）
+const expandedState = ref(new Map())
+
 // ---- 层级日期树（年→月→日）----
 const yearTree = computed(() => {
   const yearMap = new Map()
@@ -344,9 +351,6 @@ const yearTree = computed(() => {
 
   return years
 })
-
-// 展开状态（Map<nodeKey, boolean>）
-const expandedState = ref(new Map())
 
 function toggleYear(year) {
   const key = `y-${year.year}`
@@ -475,10 +479,6 @@ function handleScroll() {
 }
 
 watch(displayCount, () => { nextTick(() => setupObserver()) })
-
-// ---- 快速跳转 ----
-const groupRefs = reactive({})
-const activeDate = ref('')
 
 function setGroupRef(date, el) {
   if (el) groupRefs[date] = el
