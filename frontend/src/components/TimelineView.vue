@@ -539,7 +539,7 @@ watch(() => props.result?.taskId, () => {
   padding: 0.5rem 0;
   margin-bottom: 0.75rem;
   position: sticky;
-  top: 55px;
+  top: -16px;
   background: var(--color-bg);
   z-index: 10;
 }
