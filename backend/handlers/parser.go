@@ -22,10 +22,19 @@ func extractJSArray(htmlStr string) (string, error) {
 	}
 
 	startIdx += len(startMarker)
+	rest := htmlStr[startIdx:]
 
-	runes := []rune(htmlStr[startIdx:])
+	// 方法1：找到 ]; 后面跟着 JS 语句关键字
+	re := regexp.MustCompile(`\];\s*(?:var\s|for\s*\(|document\.|if\s*\(|</script)`)
+	loc := re.FindStringIndex(rest)
+	if loc != nil {
+		// loc[0] 是 ]; 中 ] 的字节位置
+		return rest[:loc[0]+1], nil
+	}
+
+	// 方法2：回退到括号计数（适用于没有后续 JS 代码的简单情况）
+	runes := []rune(rest)
 	bracketCount := 0
-	endIdx := -1
 	inString := false
 	var prev rune
 
@@ -39,19 +48,14 @@ func extractJSArray(htmlStr string) (string, error) {
 			} else if ch == ']' {
 				bracketCount--
 				if bracketCount == 0 {
-					endIdx = i + 1
-					break
+					return string(runes[:i+1]), nil
 				}
 			}
 		}
 		prev = ch
 	}
 
-	if endIdx == -1 {
-		return "", fmt.Errorf("未找到数组结束位置")
-	}
-
-	return string(runes[:endIdx]), nil
+	return "", fmt.Errorf("未找到数组结束位置")
 }
 
 // parseHTMLToImagesDirect 直接从 HTML 解析图片消息（字段级提取，无需完整 JSON 转换）
@@ -72,7 +76,9 @@ func parseHTMLToImagesDirect(htmlStr string) ([]models.ParsedImage, map[string]b
 
 	for objIdx, objStr := range objects {
 		msgType := extractJSField(objStr, "type")
-		if msgType != "GROUP_IMAGE" {
+		// 支持所有图片和笔记类型：群聊图片/笔记、单聊图片/笔记
+		if msgType != "GROUP_IMAGE" && msgType != "SINGLE_IMAGE" &&
+			msgType != "GROUP_NOTE" && msgType != "SINGLE_NOTE" {
 			continue
 		}
 
@@ -86,6 +92,8 @@ func parseHTMLToImagesDirect(htmlStr string) ([]models.ParsedImage, map[string]b
 		sessionID, _ := strconv.ParseInt(sessionIDStr, 10, 64)
 
 		// 从 content 的 JSON 中提取图片信息
+		// content 字段可能含有 \\/ 转义（126.html 格式）或正常斜杠（其他格式）
+		// extractJSField 已统一处理 \\/ → /
 		imgHeight := extractJSONField(contentStr, "img_height")
 		imgWidth := extractJSONField(contentStr, "img_width")
 		serverImgURL := extractJSONField(contentStr, "serverimg_url")

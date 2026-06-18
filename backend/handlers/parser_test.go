@@ -7,7 +7,23 @@ import (
 )
 
 func TestParseHTML(t *testing.T) {
-	content, err := os.ReadFile("../../sample/126.html")
+	sampleFiles := []string{
+		"126.html",
+		"28f2c174-2eef-490f-93c2-d09aa192136f.html",
+		"6d2be2af-fc4f-4ea2-8601-48bab47586d4.html",
+		"853c9c5f-2cee-4d2a-9c80-56e9684525bb.html",
+		"8854bc5f-67e4-44c4-9df1-ecbed5c9045c.html",
+	}
+
+	for _, fname := range sampleFiles {
+		t.Run(fname, func(t *testing.T) {
+			testParseFile(t, fname)
+		})
+	}
+}
+
+func testParseFile(t *testing.T, fname string) {
+	content, err := os.ReadFile("../../sample/" + fname)
 	if err != nil {
 		t.Skip("Sample file not available")
 		return
@@ -29,17 +45,6 @@ func TestParseHTML(t *testing.T) {
 		t.Fatal("No objects found")
 	}
 
-	// 测试字段提取
-	for i, obj := range objects {
-		if i >= 3 {
-			break
-		}
-		msgType := extractJSField(obj, "type")
-		fromName := extractJSField(obj, "fromName")
-		datetime := extractJSField(obj, "datetime")
-		t.Logf("Object %d: type=%s, from=%s, time=%s", i, msgType, fromName, datetime)
-	}
-
 	// 测试完整解析
 	images, senders, recipients, err := parseHTMLToImagesDirect(htmlStr)
 	if err != nil {
@@ -51,16 +56,15 @@ func TestParseHTML(t *testing.T) {
 	t.Logf("Recipients: %v", recipients)
 
 	if len(images) == 0 {
-		t.Fatal("No images found - parsing may have issues")
+		t.Error("No images found - file may have no image messages or parsing may have issues")
 	}
 
 	for i, img := range images {
 		if i >= 3 {
 			break
 		}
-		t.Logf("Image %d: fromName=%s, datetime=%s, url=%s, size=%dx%d, fileName=%s",
+		t.Logf("Image %d: fromName=%s, datetime=%s, size=%dx%d, fileName=%s",
 			i, img.FromName, img.Datetime,
-			img.ServerImgURL[:min(50, len(img.ServerImgURL))],
 			img.ImgWidth, img.ImgHeight, img.FileName)
 	}
 
