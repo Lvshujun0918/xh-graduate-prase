@@ -86,15 +86,23 @@
     <div v-if="successMsg" class="toast toast-success" @click="successMsg = ''">
       {{ successMsg }}
     </div>
+    <!-- 下载进度弹窗 -->
+    <DownloadProgress
+      v-if="downloadImages_list"
+      ref="downloadProgressRef"
+      :images="downloadImages_list"
+      @close="downloadImages_list = null"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { uploadHTML, downloadImages } from './api/index.js'
+import { ref, nextTick } from 'vue'
+import { uploadHTML } from './api/index.js'
 import FileUpload from './components/FileUpload.vue'
 import TimelineView from './components/TimelineView.vue'
 import ImagePreview from './components/ImagePreview.vue'
+import DownloadProgress from './components/DownloadProgress.vue'
 import Watermark from './components/Watermark.vue'
 import AppFooter from './components/AppFooter.vue'
 
@@ -104,6 +112,8 @@ const selectedIndices = ref(new Set())
 const previewImage = ref(null)
 const errorMsg = ref('')
 const successMsg = ref('')
+const downloadImages_list = ref(null)
+const downloadProgressRef = ref(null)
 
 async function handleUpload(file) {
   loading.value = true
@@ -175,30 +185,24 @@ async function handleDownload() {
     return
   }
 
-  try {
-    const res = await downloadImages(result.value.taskId, indices)
-    const blob = res.data
-    const url = URL.createObjectURL(blob)
+  const selectedImages = indices.map(i => result.value.images[i])
+
+  // 单张图片：直接代理下载
+  if (selectedImages.length === 1) {
+    const img = selectedImages[0]
+    const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(img.serverImgUrl)}`
     const a = document.createElement('a')
-    a.href = url
-
-    // 从响应头获取文件名
-    const disposition = res.headers['content-disposition']
-    if (disposition) {
-      const match = disposition.match(/filename="?(.+?)"?$/i)
-      if (match) a.download = match[1]
-    } else if (indices.length === 1) {
-      a.download = result.value.images[indices[0]].fileName
-    } else {
-      a.download = 'images.zip'
-    }
-
+    a.href = proxyUrl
+    a.download = img.fileName
     a.click()
-    URL.revokeObjectURL(url)
-    successMsg.value = `成功下载 ${indices.length} 张图片`
-  } catch (err) {
-    errorMsg.value = '下载失败，请重试'
+    successMsg.value = '开始下载 1 张图片'
+    return
   }
+
+  // 多张图片：打开进度弹窗，前端并行下载 + JSZip 打包
+  downloadImages_list.value = selectedImages
+  await nextTick()
+  downloadProgressRef.value?.start()
 }
 </script>
 
