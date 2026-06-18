@@ -98,6 +98,7 @@ let abortController = null
 let startTime = 0
 let lastDownloaded = 0
 let lastTime = 0
+let zip = null  // 持久化 zip 实例，重试时保留已成功的图片
 
 const progressPercent = computed(() => {
   if (total.value === 0) return 0
@@ -106,25 +107,36 @@ const progressPercent = computed(() => {
 
 const PARALLEL = 4
 
-// 开始下载
-async function start() {
+// 开始下载（isRetry=true 时保留已有的 zip 内容和计数）
+async function start(isRetry = false) {
   downloading.value = true
   completed.value = false
   hasError.value = false
   errorMsg.value = ''
-  downloaded.value = 0
-  total.value = props.images.length
-  successCount.value = 0
-  failedList.value = []
-  totalBytes.value = 0
-  zipBlob.value = null
+
+  if (!isRetry) {
+    // 全新下载：重置所有状态
+    downloaded.value = 0
+    total.value = props.images.length
+    successCount.value = 0
+    failedList.value = []
+    totalBytes.value = 0
+    zipBlob.value = null
+    zip = new JSZip()
+  } else {
+    // 重试：只重置失败相关状态
+    total.value = failedList.value.length
+    hasError.value = false
+    errorMsg.value = ''
+  }
+
   startTime = Date.now()
-  lastDownloaded = 0
+  lastDownloaded = downloaded.value
   lastTime = Date.now()
   abortController = new AbortController()
 
-  const zip = new JSZip()
-  const queue = [...props.images]
+  const queue = isRetry ? [...failedList.value] : [...props.images]
+  failedList.value = []
 
   // 并行下载 worker
   async function worker() {
@@ -203,17 +215,7 @@ function updateSpeed() {
 }
 
 function retryFailed() {
-  // 将失败项重新加入队列
-  hasError.value = false
-  errorMsg.value = ''
-  total.value = failedList.value.length
-  // 简单重启（用新的 images）
-  const failed = [...failedList.value]
-  failedList.value = []
-  const saved = props.images
-  // 替换 images 引用，重新开始
-  props.images.splice(0, props.images.length, ...failed)
-  start()
+  start(true)
 }
 
 function skipAndFinish() {
