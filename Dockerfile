@@ -12,7 +12,7 @@ ARG COMMIT_ID=unknown
 ARG BUILD_TIME=unknown
 WORKDIR /app/backend
 COPY backend/go.mod backend/go.sum ./
-RUN GOPROXY=https://goproxy.cn,direct go mod download
+RUN go mod download
 COPY backend/ ./
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-X main.commitID=${COMMIT_ID} -X main.buildTime=${BUILD_TIME}" \
