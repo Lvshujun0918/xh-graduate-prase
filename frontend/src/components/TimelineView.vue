@@ -46,7 +46,40 @@
       </div>
     </div>
 
-    <!-- 选中提示条 -->
+    <!-- 日期筛选栏 -->
+    <div class="date-filter-bar" v-if="allDateGroups.length > 0">
+      <button
+        v-if="filterStart"
+        class="filter-clear-btn"
+        @click="clearFilter"
+      >
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 4l8 8M12 4l-8 8"/>
+        </svg>
+        清除筛选
+      </button>
+      <div class="date-filter-scroll" ref="filterScrollRef">
+        <button
+          v-for="dg in allDateGroups"
+          :key="dg.date"
+          class="date-filter-chip"
+          :class="{
+            'chip--start': filterStart === dg.date,
+            'chip--end': filterEnd === dg.date,
+            'chip--in-range': isDateInFilterRange(dg.date),
+            'chip--active': filterStart === dg.date
+          }"
+          @click="toggleDateFilter(dg.date)"
+        >
+          <span class="chip-date">{{ formatDateShort(dg.date) }}</span>
+          <span class="chip-count">{{ dg.count }}</span>
+        </button>
+      </div>
+      <div class="filter-summary" v-if="filterStart">
+        <span class="filter-label">{{ filterEnd ? `${formatDateShort(filterStart)} — ${formatDateShort(filterEnd)}` : formatDateShort(filterStart) }}</span>
+        <span class="filter-total">{{ filteredImages.length }} 张</span>
+      </div>
+    </div>
     <transition name="slide">
       <div v-if="selectionMode && isMobile" class="selection-banner">
         <span>选择模式 · 点击图片进行多选</span>
@@ -54,31 +87,44 @@
       </div>
     </transition>
 
-    <!-- 时间线 -->
-    <div class="timeline-scroll" ref="scrollContainer" @scroll="handleScroll">
-      <!-- 空状态 -->
-      <div v-if="images.length === 0" class="timeline-empty">
-        <div class="empty-icon">
-          <svg viewBox="0 0 48 48" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="8" y="12" width="32" height="24" rx="3"/>
-            <circle cx="16" cy="20" r="3"/>
-            <path d="M8 30l10-8 6 5 8-9 8 7"/>
-          </svg>
+    <!-- 时间线主体 + 快速跳转 -->
+    <div class="timeline-body">
+      <!-- 时间线 -->
+      <div class="timeline-scroll" ref="scrollContainer" @scroll="handleScroll">
+        <!-- 空状态 -->
+        <div v-if="filteredImages.length === 0 && images.length > 0" class="timeline-empty">
+          <div class="empty-icon">
+            <svg viewBox="0 0 48 48" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="24" cy="24" r="12"/>
+              <path d="M16 16l16 16M32 16l-16 16"/>
+            </svg>
+          </div>
+          <p>该日期范围内无图片</p>
+          <button class="empty-reset-btn" @click="clearFilter">清除筛选</button>
         </div>
-        <p>暂无图片数据</p>
-      </div>
+        <div v-else-if="images.length === 0" class="timeline-empty">
+          <div class="empty-icon">
+            <svg viewBox="0 0 48 48" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="8" y="12" width="32" height="24" rx="3"/>
+              <circle cx="16" cy="20" r="3"/>
+              <path d="M8 30l10-8 6 5 8-9 8 7"/>
+            </svg>
+          </div>
+          <p>暂无图片数据</p>
+        </div>
 
-      <!-- 时间线条目 -->
-      <div
-        v-for="(group, gIdx) in visibleGroups"
-        :key="gIdx"
-        class="timeline-group"
-      >
-        <!-- 日期分隔线 -->
-        <div class="timeline-date-separator">
-          <span class="date-badge">{{ group.date }}</span>
-          <span class="date-count">{{ group.items.length }} 张</span>
-        </div>
+        <!-- 时间线条目 -->
+        <div
+          v-for="(group, gIdx) in visibleGroups"
+          :key="gIdx"
+          class="timeline-group"
+          :ref="el => setGroupRef(group.date, el)"
+        >
+          <!-- 日期分隔线 -->
+          <div class="timeline-date-separator" :id="`date-${group.date}`">
+            <span class="date-badge">{{ group.date }}</span>
+            <span class="date-count">{{ group.items.length }} 张</span>
+          </div>
 
         <!-- 图片网格 -->
         <div class="timeline-grid">
@@ -141,15 +187,35 @@
       </div>
 
       <!-- 全部加载完毕 -->
-      <div v-if="!hasMore && images.length > 0" class="timeline-end">
-        <span>— 已展示全部 {{ images.length }} 张图片 —</span>
+      <div v-if="!hasMore && filteredImages.length > 0" class="timeline-end">
+        <span>— 已展示全部 {{ filteredImages.length }} 张图片 —</span>
       </div>
     </div>
+
+    <!-- 快速跳转指示器 -->
+    <nav class="quick-jump" v-if="allDateGroups.length > 1 && !isMobile">
+      <div class="quick-jump-title">快速跳转</div>
+      <div class="quick-jump-list">
+        <button
+          v-for="dg in allDateGroups"
+          :key="dg.date"
+          class="quick-jump-item"
+          :class="{ 'jump--active': dg.date === activeDate }"
+          :title="`${dg.date} · ${dg.count} 张`"
+          @click="jumpToDate(dg.date)"
+        >
+          <span class="jump-dot"></span>
+          <span class="jump-label">{{ formatDateShort(dg.date) }}</span>
+          <span class="jump-count">{{ dg.count }}</span>
+        </button>
+      </div>
+    </nav>
   </div>
+</div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick, reactive } from 'vue'
 import { getProxyImageUrl } from '../api/index.js'
 
 const props = defineProps({
@@ -161,17 +227,84 @@ const props = defineProps({
 
 const emit = defineEmits(['select', 'selectRange', 'preview', 'download', 'clearSelection', 'selectAll'])
 
+// ---- 所有日期分组（用于筛选栏和快速跳转）----
+const allDateGroups = computed(() => {
+  const groups = []
+  let currentDate = ''
+  let currentGroup = null
+
+  for (const img of props.images) {
+    const date = img.datetime.split(' ')[0]
+    if (date !== currentDate) {
+      currentGroup = { date, count: 0 }
+      groups.push(currentGroup)
+      currentDate = date
+    }
+    currentGroup.count++
+  }
+  return groups
+})
+
+// ---- 日期筛选 ----
+const filterStart = ref('')
+const filterEnd = ref('')
+const filterScrollRef = ref(null)
+
+const filteredImages = computed(() => {
+  if (!filterStart.value) return props.images
+  const start = filterStart.value
+  const end = filterEnd.value || filterStart.value
+  return props.images.filter(img => {
+    const d = img.datetime.split(' ')[0]
+    return d >= start && d <= end
+  })
+})
+
+function toggleDateFilter(date) {
+  if (!filterStart.value) {
+    // 第一次点击：设为起始日期
+    filterStart.value = date
+    filterEnd.value = ''
+  } else if (filterEnd.value) {
+    // 已有完整范围：重新开始
+    filterStart.value = date
+    filterEnd.value = ''
+  } else if (date === filterStart.value) {
+    // 再次点击同一天：取消筛选
+    filterStart.value = ''
+  } else if (date < filterStart.value) {
+    // 点击更早日期：交换起始
+    filterEnd.value = filterStart.value
+    filterStart.value = date
+  } else {
+    // 点击更晚日期：设为终止
+    filterEnd.value = date
+  }
+}
+
+function clearFilter() {
+  filterStart.value = ''
+  filterEnd.value = ''
+}
+
+function isDateInFilterRange(date) {
+  if (!filterStart.value) return false
+  const start = filterStart.value
+  const end = filterEnd.value || filterStart.value
+  return date >= start && date <= end
+}
+
 // ---- 无极滚动 ----
 const BATCH_SIZE = 40
 const displayCount = ref(BATCH_SIZE)
 const scrollContainer = ref(null)
 const loadTrigger = ref(null)
 
-const hasMore = computed(() => displayCount.value < props.images.length)
+const hasMore = computed(() => displayCount.value < filteredImages.value.length)
 
 // 按日期分组可见图片
 const visibleGroups = computed(() => {
-  const visible = props.images.slice(0, displayCount.value)
+  const visible = filteredImages.value.slice(0, displayCount.value)
   const groups = []
   let currentDate = ''
   let currentGroup = null
@@ -190,26 +323,22 @@ const visibleGroups = computed(() => {
 
 function loadMore() {
   if (hasMore.value) {
-    displayCount.value = Math.min(displayCount.value + BATCH_SIZE, props.images.length)
+    displayCount.value = Math.min(displayCount.value + BATCH_SIZE, filteredImages.value.length)
   }
 }
 
-// Intersection Observer 自动加载
 let observer = null
 function setupObserver() {
   if (observer) observer.disconnect()
   if (!loadTrigger.value) return
-
   observer = new IntersectionObserver((entries) => {
     if (entries[0].isIntersecting && hasMore.value) {
       loadMore()
     }
   }, { root: scrollContainer.value, rootMargin: '200px' })
-
   observer.observe(loadTrigger.value)
 }
 
-// 手动滚动兜底
 function handleScroll() {
   if (!scrollContainer.value || !hasMore.value) return
   const { scrollTop, scrollHeight, clientHeight } = scrollContainer.value
@@ -218,17 +347,44 @@ function handleScroll() {
   }
 }
 
-watch(displayCount, () => {
-  nextTick(() => setupObserver())
-})
+watch(displayCount, () => { nextTick(() => setupObserver()) })
 
-onMounted(() => {
-  nextTick(() => setupObserver())
-})
+// ---- 快速跳转 ----
+const groupRefs = reactive({})
+const activeDate = ref('')
 
-onUnmounted(() => {
-  if (observer) observer.disconnect()
-})
+function setGroupRef(date, el) {
+  if (el) groupRefs[date] = el
+}
+
+function jumpToDate(date) {
+  const el = groupRefs[date]
+  if (el && scrollContainer.value) {
+    const offsetTop = el.offsetTop - 80
+    scrollContainer.value.scrollTo({ top: offsetTop, behavior: 'smooth' })
+  }
+}
+
+// 检测当前可见日期
+function updateActiveDate() {
+  if (!scrollContainer.value || allDateGroups.value.length === 0) return
+  const container = scrollContainer.value
+  const scrollMid = container.scrollTop + 120
+
+  let closest = allDateGroups.value[0].date
+  let closestDist = Infinity
+
+  for (const dg of allDateGroups.value) {
+    const el = groupRefs[dg.date]
+    if (!el) continue
+    const dist = Math.abs(el.offsetTop - scrollMid)
+    if (dist < closestDist) {
+      closestDist = dist
+      closest = dg.date
+    }
+  }
+  activeDate.value = closest
+}
 
 // ---- 选择逻辑 ----
 const isMobile = ref(false)
@@ -236,30 +392,21 @@ const selectionMode = ref(false)
 const lastClickedIndex = ref(-1)
 let longPressTimer = null
 
-function detectMobile() {
-  isMobile.value = window.innerWidth < 768
-}
+function detectMobile() { isMobile.value = window.innerWidth < 768 }
 
 function handleCardClick(index, event) {
   if (selectionMode.value && isMobile.value) {
-    // 移动端选择模式：点击切换选中
     emit('select', index)
     return
   }
-
   if (event.shiftKey && lastClickedIndex.value >= 0) {
-    // Shift+点击：区间选择
     const start = Math.min(lastClickedIndex.value, index)
     const end = Math.max(lastClickedIndex.value, index)
     const rangeIndices = []
-    for (let i = start; i <= end; i++) {
-      rangeIndices.push(i)
-    }
+    for (let i = start; i <= end; i++) rangeIndices.push(i)
     emit('selectRange', rangeIndices)
     return
   }
-
-  // 普通点击：切换单个
   emit('select', index)
   lastClickedIndex.value = index
 }
@@ -271,29 +418,9 @@ function handleContextMenu(index) {
   }
 }
 
-function enterSelectionMode() {
-  selectionMode.value = true
-}
+function enterSelectionMode() { selectionMode.value = true }
+function exitSelectionMode() { selectionMode.value = false }
 
-function exitSelectionMode() {
-  selectionMode.value = false
-}
-
-// 长按进入选择模式（移动端）
-function onTouchStart(index, event) {
-  if (isMobile.value && !selectionMode.value) {
-    longPressTimer = setTimeout(() => {
-      enterSelectionMode()
-      emit('select', index)
-    }, 500)
-  }
-}
-
-function onTouchEnd() {
-  clearTimeout(longPressTimer)
-}
-
-// ---- 全选 ----
 const isAllSelected = computed(() =>
   props.images.length > 0 && props.selectedIndices.size === props.images.length
 )
@@ -303,37 +430,56 @@ function toggleSelectAll() {
 }
 
 // ---- 工具函数 ----
-function getProxyUrl(url) {
-  return getProxyImageUrl(url)
-}
+function getProxyUrl(url) { return getProxyImageUrl(url) }
 
 function formatTime(datetime) {
   const parts = datetime.split(' ')
-  if (parts.length >= 2) {
-    return parts[1] // 只显示时分秒
-  }
-  return datetime
+  return parts.length >= 2 ? parts[1] : datetime
 }
 
-function onImgError(e) {
-  e.target.style.display = 'none'
+function formatDateShort(dateStr) {
+  const parts = dateStr.split('-')
+  return parts.length === 3 ? `${parts[1]}-${parts[2]}` : dateStr
 }
 
-// 监听窗口大小
+function onImgError(e) { e.target.style.display = 'none' }
+
+// ---- 生命周期 ----
 onMounted(() => {
   detectMobile()
   window.addEventListener('resize', detectMobile)
+  nextTick(() => {
+    setupObserver()
+    updateActiveDate()
+  })
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', detectMobile)
+  if (observer) observer.disconnect()
 })
 
-// 监听 result 变化时重置
+// 监听滚动更新 activeDate
+watch(scrollContainer, (el) => {
+  if (el) {
+    el.addEventListener('scroll', updateActiveDate, { passive: true })
+  }
+})
+
+// 筛选变化时重置滚动
+watch([filterStart, filterEnd], () => {
+  displayCount.value = BATCH_SIZE
+  if (scrollContainer.value) scrollContainer.value.scrollTop = 0
+  nextTick(() => { setupObserver(); updateActiveDate() })
+})
+
+// 任务切换重置
 watch(() => props.result?.taskId, () => {
   displayCount.value = BATCH_SIZE
   lastClickedIndex.value = -1
   selectionMode.value = false
+  filterStart.value = ''
+  filterEnd.value = ''
 })
 </script>
 
@@ -345,6 +491,13 @@ watch(() => props.result?.taskId, () => {
   height: calc(100vh - 180px);
   min-height: 500px;
   background: var(--color-bg);
+}
+
+.timeline-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  position: relative;
 }
 
 /* ========== 工具栏 ========== */
@@ -455,6 +608,153 @@ watch(() => props.result?.taskId, () => {
   box-shadow: none;
 }
 
+/* ========== 日期筛选栏 ========== */
+.date-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0.5rem 1rem;
+  background: var(--color-bg-card);
+  border-bottom: 1px solid var(--color-border-light);
+  overflow: hidden;
+}
+
+.filter-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  border: 1px solid #FECACA;
+  background: #FEF2F2;
+  color: #DC2626;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-right: 0.5rem;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.filter-clear-btn:hover {
+  background: #FEE2E2;
+}
+
+.date-filter-scroll {
+  flex: 1;
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding: 0.15rem 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.date-filter-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.date-filter-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  min-width: 44px;
+  padding: 0.3rem 0.5rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--color-border-light);
+  background: var(--color-bg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.date-filter-chip:hover {
+  border-color: var(--color-primary-light);
+  background: var(--color-primary-bg);
+}
+
+.date-filter-chip.chip--active {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: white;
+}
+
+.date-filter-chip.chip--start {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: white;
+  border-radius: 8px 0 0 8px;
+}
+
+.date-filter-chip.chip--end {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: white;
+  border-radius: 0 8px 8px 0;
+}
+
+.date-filter-chip.chip--in-range {
+  border-color: var(--color-primary-light);
+  background: var(--color-primary-bg);
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+}
+
+.date-filter-chip.chip--in-range:first-of-type {
+  border-left: 1.5px solid var(--color-primary-light);
+}
+
+.chip-date {
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.chip-count {
+  font-size: 0.6rem;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.chip--active .chip-count,
+.chip--start .chip-count,
+.chip--end .chip-count {
+  opacity: 0.85;
+}
+
+.filter-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  margin-left: 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--color-border);
+}
+
+.filter-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  white-space: nowrap;
+}
+
+.filter-total {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
 /* ========== 选择模式横幅（移动端） ========== */
 .selection-banner {
   display: flex;
@@ -495,6 +795,7 @@ watch(() => props.result?.taskId, () => {
   overflow-x: hidden;
   padding: 1rem 1.25rem 2rem;
   scroll-behavior: smooth;
+  min-width: 0;
 }
 
 .timeline-scroll::-webkit-scrollbar {
@@ -506,6 +807,112 @@ watch(() => props.result?.taskId, () => {
 .timeline-scroll::-webkit-scrollbar-thumb {
   background: var(--color-border);
   border-radius: 10px;
+}
+
+/* ========== 快速跳转 ========== */
+.quick-jump {
+  width: 110px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--color-border-light);
+  background: var(--color-bg-card);
+  padding: 0.75rem 0.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.quick-jump-title {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--color-border-light);
+  margin-bottom: 0.35rem;
+}
+
+.quick-jump-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.quick-jump-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.35rem;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+  transition: all 0.15s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.quick-jump-item:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
+}
+
+.quick-jump-item.jump--active {
+  background: var(--color-primary-bg);
+  color: var(--color-primary-dark);
+}
+
+.jump-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-border);
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.quick-jump-item:hover .jump-dot {
+  background: var(--color-primary-light);
+}
+
+.jump--active .jump-dot {
+  background: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.jump-label {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.jump-count {
+  font-size: 0.6rem;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 空状态重置按钮 */
+.empty-reset-btn {
+  margin-top: 0.75rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-primary-light);
+  background: var(--color-primary-bg);
+  color: var(--color-primary-dark);
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.empty-reset-btn:hover {
+  background: var(--color-primary);
+  color: white;
 }
 
 /* ========== 空状态 ========== */
@@ -749,6 +1156,10 @@ watch(() => props.result?.taskId, () => {
   .timeline-grid {
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   }
+
+  .quick-jump {
+    width: 90px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -757,10 +1168,44 @@ watch(() => props.result?.taskId, () => {
     min-height: 400px;
   }
 
+  .timeline-body {
+    flex-direction: column;
+  }
+
+  .quick-jump {
+    display: none;
+  }
+
   .timeline-toolbar {
     padding: 0.65rem 0.75rem;
     position: sticky;
     top: 0;
+  }
+
+  .date-filter-bar {
+    padding: 0.4rem 0.5rem;
+    overflow-x: auto;
+  }
+
+  .date-filter-scroll {
+    gap: 0.25rem;
+  }
+
+  .date-filter-chip {
+    min-width: 38px;
+    padding: 0.25rem 0.4rem;
+  }
+
+  .chip-date {
+    font-size: 0.62rem;
+  }
+
+  .chip-count {
+    font-size: 0.55rem;
+  }
+
+  .filter-summary {
+    display: none;
   }
 
   .toolbar-stats {
@@ -837,6 +1282,10 @@ watch(() => props.result?.taskId, () => {
 
   .stat-divider {
     display: none;
+  }
+
+  .date-filter-chip {
+    min-width: 34px;
   }
 }
 </style>
