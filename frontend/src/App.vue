@@ -20,14 +20,14 @@
             </svg>
           </div>
           <div class="header-text">
-            <h1 class="app-title">图片批量下载工具</h1>
+            <h1 class="app-title">学海聊天记录图片批量下载工具</h1>
             <p class="app-subtitle">上传聊天记录 · 智能解析 · 一键下载</p>
           </div>
         </div>
         <div class="header-right hidden-mobile">
           <div class="header-badge">
             <span class="badge-dot"></span>
-            企业版
+            Xuehai Image Batch Downloader
           </div>
         </div>
       </div>
