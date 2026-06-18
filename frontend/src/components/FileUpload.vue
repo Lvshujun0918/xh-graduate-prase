@@ -27,7 +27,7 @@
           </div>
         </div>
         <p class="upload-title">拖拽或<span class="upload-link">点击上传</span>HTML 文件</p>
-        <p class="upload-hint">支持 IMX 聊天记录导出的 .html 格式</p>
+        <p class="upload-hint">支持学海毕业导出的 .html 格式</p>
       </template>
 
       <template v-else>

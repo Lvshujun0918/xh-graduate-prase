@@ -27,7 +27,7 @@
         <div class="header-right hidden-mobile">
           <div class="header-badge">
             <span class="badge-dot"></span>
-            Xuehai Image Batch Downloader
+            LSJ
           </div>
         </div>
       </div>
