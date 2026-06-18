@@ -17,34 +17,42 @@
       />
 
       <template v-if="!result">
-        <div class="upload-icon">
-          <svg viewBox="0 0 48 48" width="48" height="48" fill="none">
-            <rect x="6" y="10" width="36" height="28" rx="4" stroke="currentColor" stroke-width="2.5"/>
-            <path d="M6 30l10-8 6 5 8-10 12 10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="16" cy="20" r="3" stroke="currentColor" stroke-width="2"/>
-          </svg>
+        <div class="upload-icon-wrapper">
+          <div class="upload-icon">
+            <svg viewBox="0 0 40 40" width="40" height="40" fill="none">
+              <rect x="4" y="8" width="32" height="24" rx="3" stroke="currentColor" stroke-width="2"/>
+              <path d="M4 26l9-7 6 6 7-11 10 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="14" cy="17" r="2.5" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </div>
         </div>
-        <p class="upload-title">点击或拖拽上传 HTML 文件</p>
-        <p class="upload-hint">支持聊天记录导出的 .html 文件</p>
+        <p class="upload-title">拖拽或<span class="upload-link">点击上传</span>HTML 文件</p>
+        <p class="upload-hint">支持 IMX 聊天记录导出的 .html 格式</p>
       </template>
 
       <template v-else>
         <div class="upload-result">
-          <div class="result-check">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-              <path d="M8 12l3 3 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <div class="result-icon">
+            <svg viewBox="0 0 32 32" width="32" height="32" fill="none">
+              <circle cx="16" cy="16" r="12" stroke="#10B981" stroke-width="2.5"/>
+              <path d="M11 16l3.5 3.5 6.5-7" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
           <div class="result-info">
             <p class="result-title">解析完成</p>
             <p class="result-detail">
-              共 <strong>{{ result.totalCount }}</strong> 张图片 ·
-              发送人：<strong>{{ result.sender }}</strong> ·
-              会话：<strong>{{ result.recipients }}</strong>
+              共 <strong>{{ result.totalCount }}</strong> 张图片
+              <span class="result-sep">·</span>
+              发送人 <strong>{{ result.sender }}</strong>
+              <span class="result-sep">·</span>
+              会话 <strong>{{ result.recipients }}</strong>
             </p>
           </div>
-          <button class="btn btn-outline btn-sm" @click.stop="$emit('reset')">
+          <button class="btn-reset" @click.stop="$emit('reset')">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M2 8a6 6 0 0111.47-2.5M14 8a6 6 0 01-11.47 2.5"/>
+              <path d="M2 2v4h4M14 14v-4h-4"/>
+            </svg>
             重新上传
           </button>
         </div>
@@ -87,56 +95,80 @@ function handleDrop(e) {
 
 <style scoped>
 .upload-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .upload-zone {
-  border: 2px dashed var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 2.5rem 2rem;
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.75rem 1.5rem;
   text-align: center;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   background: var(--color-bg-card);
   position: relative;
 }
 
 .upload-zone:hover {
   border-color: var(--color-primary-light);
-  background: #EEF2FF;
+  background: var(--color-primary-bg);
 }
 
 .upload-zone--active {
   border-color: var(--color-primary);
-  background: #EEF2FF;
-  transform: scale(1.01);
+  background: var(--color-primary-bg);
+  border-style: solid;
 }
 
 .upload-zone--done {
   border-style: solid;
-  border-color: var(--color-success);
-  background: #ECFDF5;
+  border-color: #A7F3D0;
+  background: #F0FDF4;
   cursor: default;
+  padding: 1rem 1.25rem;
 }
 
 .upload-input {
   display: none;
 }
 
+.upload-icon-wrapper {
+  margin-bottom: 0.75rem;
+}
+
 .upload-icon {
-  color: var(--color-primary-light);
-  margin-bottom: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.upload-zone--active .upload-icon {
+  background: var(--color-primary);
+  color: white;
 }
 
 .upload-title {
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 500;
   color: var(--color-text);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.upload-link {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--color-primary-light);
+  text-underline-offset: 2px;
 }
 
 .upload-hint {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   color: var(--color-text-muted);
 }
 
@@ -144,70 +176,67 @@ function handleDrop(e) {
 .upload-result {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
   flex-wrap: wrap;
   justify-content: center;
 }
 
-.result-check {
-  color: var(--color-success);
+.result-icon {
   flex-shrink: 0;
 }
 
 .result-info {
   text-align: left;
+  flex: 1;
+  min-width: 200px;
 }
 
 .result-title {
   font-weight: 600;
-  color: var(--color-text);
-  font-size: 1.05rem;
+  color: #065F46;
+  font-size: 0.95rem;
 }
 
 .result-detail {
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
-  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  color: #047857;
+  margin-top: 0.1rem;
 }
 
 .result-detail strong {
-  color: var(--color-primary-dark);
+  color: #065F46;
+  font-weight: 600;
 }
 
-/* Button */
-.btn {
+.result-sep {
+  color: #6EE7B7;
+  margin: 0 0.15rem;
+}
+
+.btn-reset {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 1rem;
+  gap: 0.3rem;
+  padding: 0.4rem 0.75rem;
   border-radius: var(--radius-sm);
-  font-size: 0.875rem;
+  font-size: 0.78rem;
   font-weight: 500;
-  border: none;
+  border: 1px solid #A7F3D0;
+  background: white;
+  color: #047857;
   cursor: pointer;
   transition: all 0.2s;
   font-family: inherit;
 }
 
-.btn-outline {
-  background: transparent;
-  border: 1.5px solid var(--color-border);
-  color: var(--color-text-secondary);
-}
-
-.btn-outline:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.btn-sm {
-  padding: 0.35rem 0.75rem;
-  font-size: 0.8rem;
+.btn-reset:hover {
+  background: #ECFDF5;
+  border-color: #6EE7B7;
 }
 
 @media (max-width: 480px) {
   .upload-zone {
-    padding: 1.5rem 1rem;
+    padding: 1.25rem 1rem;
   }
 
   .upload-result {
@@ -217,6 +246,10 @@ function handleDrop(e) {
 
   .result-info {
     text-align: center;
+  }
+
+  .upload-title {
+    font-size: 0.85rem;
   }
 }
 </style>

@@ -6,20 +6,30 @@
     <!-- 顶部导航 -->
     <header class="app-header">
       <div class="header-content">
-        <div class="logo">
-          <svg class="logo-icon" viewBox="0 0 32 32" width="32" height="32">
-            <rect width="32" height="32" rx="6" fill="url(#logo-grad)"/>
-            <defs>
-              <linearGradient id="logo-grad" x1="0" y1="0" x2="32" y2="32">
-                <stop offset="0%" stop-color="#6366F1"/>
-                <stop offset="100%" stop-color="#8B5CF6"/>
-              </linearGradient>
-            </defs>
-            <path d="M8 10l4 6-4 6h3l4-6-4-6H8zm7 0l4 6-4 6h3l4-6-4-6h-3z" fill="white"/>
-          </svg>
-          <h1 class="app-title">图片批量下载工具</h1>
+        <div class="header-left">
+          <div class="logo">
+            <svg viewBox="0 0 36 36" width="36" height="36">
+              <defs>
+                <linearGradient id="logo-grad-h" x1="0" y1="0" x2="36" y2="36">
+                  <stop offset="0%" stop-color="#6366F1"/>
+                  <stop offset="100%" stop-color="#8B5CF6"/>
+                </linearGradient>
+              </defs>
+              <rect width="36" height="36" rx="8" fill="url(#logo-grad-h)"/>
+              <path d="M10 12l4 6-4 6h3l4-6-4-6h-3zm8 0l4 6-4 6h3l4-6-4-6h-3z" fill="white"/>
+            </svg>
+          </div>
+          <div class="header-text">
+            <h1 class="app-title">图片批量下载工具</h1>
+            <p class="app-subtitle">上传聊天记录 · 智能解析 · 一键下载</p>
+          </div>
         </div>
-        <p class="app-subtitle">上传聊天记录 HTML 文件，轻松批量下载图片</p>
+        <div class="header-right hidden-mobile">
+          <div class="header-badge">
+            <span class="badge-dot"></span>
+            企业版
+          </div>
+        </div>
       </div>
     </header>
 
@@ -33,14 +43,17 @@
         @reset="handleReset"
       />
 
-      <!-- 图片表格 -->
-      <ImageTable
+      <!-- 图片时间线 -->
+      <TimelineView
         v-if="result && result.images && result.images.length > 0"
+        :result="result"
         :images="result.images"
         :taskId="result.taskId"
         :selectedIndices="selectedIndices"
         @select="handleSelect"
+        @selectRange="handleSelectRange"
         @selectAll="handleSelectAll"
+        @clearSelection="handleClearSelection"
         @preview="handlePreview"
         @download="handleDownload"
       />
@@ -80,7 +93,7 @@
 import { ref } from 'vue'
 import { uploadHTML, downloadImages } from './api/index.js'
 import FileUpload from './components/FileUpload.vue'
-import ImageTable from './components/ImageTable.vue'
+import TimelineView from './components/TimelineView.vue'
 import ImagePreview from './components/ImagePreview.vue'
 import Watermark from './components/Watermark.vue'
 import AppFooter from './components/AppFooter.vue'
@@ -127,6 +140,18 @@ function handleSelect(index) {
     newSet.add(index)
   }
   selectedIndices.value = newSet
+}
+
+function handleSelectRange(indices) {
+  const newSet = new Set(selectedIndices.value)
+  for (const i of indices) {
+    newSet.add(i)
+  }
+  selectedIndices.value = newSet
+}
+
+function handleClearSelection() {
+  selectedIndices.value = new Set()
 }
 
 function handleSelectAll(selectAll) {
@@ -191,26 +216,32 @@ async function handleDownload() {
   --color-primary: #6366F1;
   --color-primary-dark: #4F46E5;
   --color-primary-light: #A5B4FC;
+  --color-primary-bg: #EEF2FF;
   --color-success: #10B981;
   --color-warning: #F59E0B;
   --color-danger: #EF4444;
-  --color-bg: #F8FAFC;
+  --color-bg: #F1F5F9;
   --color-bg-card: #FFFFFF;
-  --color-bg-hover: #F1F5F9;
-  --color-text: #1E293B;
-  --color-text-secondary: #64748B;
+  --color-bg-hover: #F8FAFC;
+  --color-text: #0F172A;
+  --color-text-secondary: #475569;
   --color-text-muted: #94A3B8;
   --color-border: #E2E8F0;
   --color-border-light: #F1F5F9;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-  --radius-sm: 6px;
-  --radius-md: 10px;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -6px rgba(0, 0, 0, 0.04);
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
   --radius-lg: 16px;
+  --radius-xl: 20px;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
     'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial,
     sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
 }
 
 html {
@@ -237,49 +268,96 @@ body {
 
 /* ===== Header ===== */
 .app-header {
-  background: linear-gradient(135deg, var(--color-primary-dark), var(--color-primary));
-  color: white;
-  padding: 2rem 1.5rem;
-  text-align: center;
-  box-shadow: var(--shadow-md);
+  background: var(--color-bg-card);
+  border-bottom: 1px solid var(--color-border);
+  padding: 1rem 1.5rem;
+  box-shadow: var(--shadow-xs);
+  position: sticky;
+  top: 0;
+  z-index: 500;
 }
 
 .header-content {
-  max-width: 900px;
+  max-width: 1200px;
   margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .logo {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  margin-bottom: 0.5rem;
 }
 
-.logo-icon {
-  flex-shrink: 0;
+.header-text {
+  display: flex;
+  flex-direction: column;
 }
 
 .app-title {
-  font-size: 1.5rem;
+  font-size: 1.15rem;
   font-weight: 700;
+  color: var(--color-text);
   letter-spacing: -0.02em;
+  line-height: 1.3;
 }
 
 .app-subtitle {
-  font-size: 0.9rem;
-  opacity: 0.85;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
   font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.header-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-primary-bg);
+  padding: 0.3rem 0.7rem;
+  border-radius: 20px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.badge-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--color-primary);
+  border-radius: 50%;
+  animation: dotPulse 2s ease infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 /* ===== Main ===== */
 .app-main {
   flex: 1;
-  max-width: 1100px;
+  max-width: 1300px;
   width: 100%;
   margin: 0 auto;
-  padding: 1.5rem 1rem 3rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ===== Loading Overlay ===== */
@@ -355,38 +433,43 @@ body {
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
   .app-header {
-    padding: 1.5rem 1rem;
+    padding: 0.75rem 1rem;
   }
 
   .app-title {
-    font-size: 1.25rem;
+    font-size: 1rem;
   }
 
   .app-subtitle {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
+  }
+
+  .header-badge {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.5rem;
   }
 
   .app-main {
-    padding: 1rem 0.75rem 2rem;
+    padding: 0.5rem;
+  }
+
+  .hidden-mobile {
+    display: none;
   }
 }
 
 @media (max-width: 480px) {
   .app-header {
-    padding: 1.25rem 0.75rem;
+    padding: 0.65rem 0.75rem;
   }
 
-  .logo {
-    gap: 0.5rem;
-  }
-
-  .logo-icon {
-    width: 26px;
-    height: 26px;
+  .logo svg {
+    width: 28px;
+    height: 28px;
   }
 
   .app-title {
-    font-size: 1.1rem;
+    font-size: 0.9rem;
   }
 }
 </style>
