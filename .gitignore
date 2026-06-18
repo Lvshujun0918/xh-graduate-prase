@@ -1,0 +1,31 @@
+# 依赖
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Go
+backend/server
+backend/tmp/
+
+# 上传文件
+uploads/
+saved_html/
+
+# 环境
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+plan.md
+sample
