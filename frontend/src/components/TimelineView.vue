@@ -211,34 +211,38 @@
             <span class="jump-node-label">{{ year.year }}年</span>
             <span class="jump-node-count">{{ year.totalCount }}</span>
           </button>
-          <div v-if="year.expanded" class="jump-children">
-            <div
-              v-for="month in year.months"
-              :key="'m-'+month.key"
-              class="jump-node jump-month"
-              :class="{ 'node--expanded': month.expanded, 'node--active': month.active }"
-            >
-              <button class="jump-node-btn" @click="toggleMonth(month)">
-                <span class="jump-caret">
-                  <svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor">
-                    <path d="M6 4l4 4-4 4"/>
-                  </svg>
-                </span>
-                <span class="jump-node-label">{{ month.label }}</span>
-                <span class="jump-node-count">{{ month.totalCount }}</span>
-              </button>
-              <div v-if="month.expanded" class="jump-children">
-                <button
-                  v-for="day in month.days"
-                  :key="'d-'+day.date"
-                  class="jump-node jump-day"
-                  :class="{ 'node--active': day.date === activeDate }"
-                  @click="jumpToDate(day.date)"
-                >
-                  <span class="jump-day-dot"></span>
-                  <span class="jump-node-label">{{ formatDateShort(day.date) }}</span>
-                  <span class="jump-node-count">{{ day.count }}</span>
+          <div class="jump-children">
+            <div class="jump-children-inner">
+              <div
+                v-for="month in year.months"
+                :key="'m-'+month.key"
+                class="jump-node jump-month"
+                :class="{ 'node--expanded': month.expanded, 'node--active': month.active }"
+              >
+                <button class="jump-node-btn" @click="toggleMonth(month)">
+                  <span class="jump-caret">
+                    <svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor">
+                      <path d="M6 4l4 4-4 4"/>
+                    </svg>
+                  </span>
+                  <span class="jump-node-label">{{ month.label }}</span>
+                  <span class="jump-node-count">{{ month.totalCount }}</span>
                 </button>
+                <div class="jump-children">
+                  <div class="jump-children-inner">
+                    <button
+                      v-for="day in month.days"
+                      :key="'d-'+day.date"
+                      class="jump-day"
+                      :class="{ 'node--active': day.date === activeDate }"
+                      @click="jumpToDate(day.date)"
+                    >
+                      <span class="jump-day-dot"></span>
+                      <span class="jump-node-label">{{ formatDateShort(day.date) }}</span>
+                      <span class="jump-node-count">{{ day.count }}</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -485,11 +489,29 @@ function setGroupRef(date, el) {
 }
 
 function jumpToDate(date) {
-  const el = groupRefs[date]
-  if (el && scrollContainer.value) {
-    const offsetTop = el.offsetTop - 80
-    scrollContainer.value.scrollTo({ top: offsetTop, behavior: 'smooth' })
+  // 找到目标日期在 filteredImages 中的位置，确保已加载
+  let targetIdx = -1
+  for (let i = 0; i < filteredImages.value.length; i++) {
+    if (filteredImages.value[i].datetime.startsWith(date)) {
+      targetIdx = i
+      break
+    }
   }
+  if (targetIdx === -1) return
+
+  // 如果目标日期还未渲染，先扩展 displayCount
+  if (targetIdx >= displayCount.value) {
+    displayCount.value = Math.min(targetIdx + BATCH_SIZE, filteredImages.value.length)
+  }
+
+  // 等待 DOM 渲染完成后滚动
+  nextTick(() => {
+    const el = groupRefs[date]
+    if (el && scrollContainer.value) {
+      const offsetTop = el.offsetTop - 100
+      scrollContainer.value.scrollTo({ top: Math.max(0, offsetTop), behavior: 'smooth' })
+    }
+  })
 }
 
 // 检测当前可见日期
@@ -925,15 +947,14 @@ watch(() => props.result?.taskId, () => {
 
 /* ========== 快速跳转（层级钻取） ========== */
 .quick-jump {
-  width: 125px;
+  width: 130px;
   flex-shrink: 0;
-  border-left: 1px solid var(--color-border-light);
-  background: var(--color-bg-card);
-  padding: 0.6rem 0;
-  overflow-y: auto;
+  border-left: 1px solid var(--color-border);
+  background: var(--color-bg);
   display: flex;
   flex-direction: column;
   user-select: none;
+  overflow: hidden;
 }
 
 .quick-jump-title {
@@ -941,42 +962,69 @@ watch(() => props.result?.taskId, () => {
   font-weight: 700;
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 0 0.5rem 0.5rem;
-  margin: 0 0.5rem 0.35rem;
+  letter-spacing: 0.1em;
+  padding: 0.6rem 0.65rem;
+  background: var(--color-bg-card);
   border-bottom: 1px solid var(--color-border-light);
+  flex-shrink: 0;
 }
 
 .jump-tree {
-  display: flex;
-  flex-direction: column;
-  padding: 0 0.25rem;
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.35rem 0;
 }
 
-/* 树节点 */
+.jump-tree::-webkit-scrollbar {
+  width: 3px;
+}
+.jump-tree::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+/* 树节点容器 */
 .jump-node {
   position: relative;
 }
 
+/* 节点按钮 */
 .jump-node-btn {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.2rem;
   width: 100%;
-  padding: 0.25rem 0.3rem;
-  border-radius: 5px;
+  padding: 0.3rem 0.55rem;
   border: none;
   background: transparent;
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   color: var(--color-text-secondary);
-  transition: all 0.12s ease;
+  transition: all 0.15s ease;
   text-align: left;
+  position: relative;
 }
 
 .jump-node-btn:hover {
   background: var(--color-bg-hover);
+}
+
+/* 左侧激活指示线 */
+.jump-node-btn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2.5px;
+  border-radius: 0 2px 2px 0;
+  background: transparent;
+  transition: background 0.2s ease;
+}
+
+.node--active > .jump-node-btn::before {
+  background: var(--color-primary);
 }
 
 /* 展开/折叠箭头 */
@@ -988,62 +1036,90 @@ watch(() => props.result?.taskId, () => {
   justify-content: center;
   flex-shrink: 0;
   color: var(--color-text-muted);
-  transition: transform 0.2s ease;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.6;
 }
 
 .node--expanded > .jump-node-btn .jump-caret {
   transform: rotate(90deg);
+  opacity: 0.9;
 }
 
-/* 节点标签和计数 */
+/* 叶子节点（天）没有箭头，用圆点占位 */
+.jump-day .jump-caret-placeholder {
+  width: 14px;
+  flex-shrink: 0;
+}
+
+/* 节点标签 */
 .jump-node-label {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
+/* 节点计数 */
 .jump-node-count {
   font-size: 0.58rem;
   color: var(--color-text-muted);
-  opacity: 0.6;
+  opacity: 0.55;
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
+  font-weight: 500;
 }
 
-/* 当前活跃祖先节点 */
+/* 活跃祖先节点 */
 .node--active > .jump-node-btn {
   color: var(--color-primary-dark);
   font-weight: 600;
-  background: var(--color-primary-bg);
 }
 
-/* 子节点容器 */
+.node--active > .jump-node-btn .jump-node-count {
+  color: var(--color-primary);
+  opacity: 0.75;
+}
+
+/* 子节点容器 - 带缩进线 */
 .jump-children {
-  padding-left: 0.8rem;
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+  max-height: 0;
+  opacity: 0;
+}
+
+.node--expanded > .jump-children {
+  max-height: 800px;
+  opacity: 1;
+}
+
+.jump-children-inner {
+  padding-left: 0.85rem;
   border-left: 1.5px solid var(--color-border-light);
-  margin-left: 0.5rem;
+  margin-left: 0.6rem;
 }
 
 /* 年份节点 */
 .jump-year > .jump-node-btn {
   font-weight: 600;
   color: var(--color-text);
+  padding: 0.35rem 0.55rem;
 }
 
 /* 月份节点 */
 .jump-month > .jump-node-btn {
-  font-size: 0.65rem;
+  font-size: 0.67rem;
+  padding: 0.28rem 0.55rem;
 }
 
 /* 日期节点（叶子） */
 .jump-day {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
   width: 100%;
-  padding: 0.2rem 0.3rem;
-  border-radius: 5px;
+  padding: 0.22rem 0.55rem 0.22rem 1rem;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -1052,6 +1128,19 @@ watch(() => props.result?.taskId, () => {
   color: var(--color-text-secondary);
   transition: all 0.12s ease;
   text-align: left;
+  position: relative;
+}
+
+.jump-day::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2.5px;
+  border-radius: 0 2px 2px 0;
+  background: transparent;
+  transition: background 0.2s ease;
 }
 
 .jump-day:hover {
@@ -1062,19 +1151,30 @@ watch(() => props.result?.taskId, () => {
   background: var(--color-primary);
   color: white;
   font-weight: 600;
+  border-radius: 0 6px 6px 0;
+  margin-right: 0.35rem;
+}
+
+.jump-day.node--active::before {
+  background: white;
+  opacity: 0.5;
 }
 
 .jump-day.node--active .jump-node-count {
-  color: rgba(255,255,255,0.7);
+  color: rgba(255,255,255,0.75);
 }
 
 .jump-day-dot {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
   background: var(--color-border);
   flex-shrink: 0;
   transition: all 0.2s;
+}
+
+.jump-day:hover .jump-day-dot {
+  background: var(--color-primary-light);
 }
 
 .jump-day.node--active .jump-day-dot {
@@ -1345,7 +1445,17 @@ watch(() => props.result?.taskId, () => {
   }
 
   .quick-jump {
-    width: 90px;
+    width: 115px;
+  }
+
+  .jump-node-btn {
+    font-size: 0.65rem;
+    padding: 0.25rem 0.45rem;
+  }
+
+  .jump-day {
+    font-size: 0.62rem;
+    padding: 0.2rem 0.45rem 0.2rem 0.85rem;
   }
 }
 
