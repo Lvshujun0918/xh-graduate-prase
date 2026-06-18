@@ -64,10 +64,10 @@
           :key="dg.date"
           class="date-filter-chip"
           :class="{
-            'chip--start': filterStart === dg.date,
+            'chip--start': filterStart === dg.date && filterEnd,
             'chip--end': filterEnd === dg.date,
-            'chip--in-range': isDateInFilterRange(dg.date),
-            'chip--active': filterStart === dg.date
+            'chip--in-range': isDateInFilterRange(dg.date) && filterStart !== dg.date && filterEnd !== dg.date,
+            'chip--single': filterStart === dg.date && !filterEnd
           }"
           @click="toggleDateFilter(dg.date)"
         >
@@ -192,22 +192,57 @@
       </div>
     </div>
 
-    <!-- 快速跳转指示器 -->
-    <nav class="quick-jump" v-if="allDateGroups.length > 1 && !isMobile">
+    <!-- 快速跳转指示器（层级钻取） -->
+    <nav class="quick-jump" v-if="yearTree.length > 0 && !isMobile">
       <div class="quick-jump-title">快速跳转</div>
-      <div class="quick-jump-list">
-        <button
-          v-for="dg in allDateGroups"
-          :key="dg.date"
-          class="quick-jump-item"
-          :class="{ 'jump--active': dg.date === activeDate }"
-          :title="`${dg.date} · ${dg.count} 张`"
-          @click="jumpToDate(dg.date)"
+      <div class="jump-tree">
+        <div
+          v-for="year in yearTree"
+          :key="'y-'+year.year"
+          class="jump-node jump-year"
+          :class="{ 'node--expanded': year.expanded, 'node--active': year.active }"
         >
-          <span class="jump-dot"></span>
-          <span class="jump-label">{{ formatDateShort(dg.date) }}</span>
-          <span class="jump-count">{{ dg.count }}</span>
-        </button>
+          <button class="jump-node-btn" @click="toggleYear(year)">
+            <span class="jump-caret">
+              <svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor">
+                <path d="M6 4l4 4-4 4"/>
+              </svg>
+            </span>
+            <span class="jump-node-label">{{ year.year }}年</span>
+            <span class="jump-node-count">{{ year.totalCount }}</span>
+          </button>
+          <div v-if="year.expanded" class="jump-children">
+            <div
+              v-for="month in year.months"
+              :key="'m-'+month.key"
+              class="jump-node jump-month"
+              :class="{ 'node--expanded': month.expanded, 'node--active': month.active }"
+            >
+              <button class="jump-node-btn" @click="toggleMonth(month)">
+                <span class="jump-caret">
+                  <svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor">
+                    <path d="M6 4l4 4-4 4"/>
+                  </svg>
+                </span>
+                <span class="jump-node-label">{{ month.label }}</span>
+                <span class="jump-node-count">{{ month.totalCount }}</span>
+              </button>
+              <div v-if="month.expanded" class="jump-children">
+                <button
+                  v-for="day in month.days"
+                  :key="'d-'+day.date"
+                  class="jump-node jump-day"
+                  :class="{ 'node--active': day.date === activeDate }"
+                  @click="jumpToDate(day.date)"
+                >
+                  <span class="jump-day-dot"></span>
+                  <span class="jump-node-label">{{ formatDateShort(day.date) }}</span>
+                  <span class="jump-node-count">{{ day.count }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </nav>
   </div>
@@ -245,7 +280,99 @@ const allDateGroups = computed(() => {
   return groups
 })
 
-// ---- 日期筛选 ----
+// ---- 层级日期树（年→月→日）----
+const yearTree = computed(() => {
+  const yearMap = new Map()
+  for (const dg of allDateGroups.value) {
+    const parts = dg.date.split('-')
+    const year = parts[0]
+    const month = parts[1]
+    const day = parts[2]
+
+    if (!yearMap.has(year)) {
+      yearMap.set(year, { months: new Map(), totalCount: 0 })
+    }
+    const y = yearMap.get(year)
+    y.totalCount += dg.count
+
+    const monthKey = `${year}-${month}`
+    if (!y.months.has(monthKey)) {
+      y.months.set(monthKey, {
+        key: monthKey,
+        label: `${parseInt(month)}月`,
+        days: [],
+        totalCount: 0,
+        expanded: false,
+        active: false
+      })
+    }
+    const m = y.months.get(monthKey)
+    m.totalCount += dg.count
+    m.days.push({ date: dg.date, count: dg.count })
+  }
+
+  // 转为数组并计算 active 状态
+  const years = []
+  const ad = activeDate.value
+  const adParts = ad.split('-')
+  const adYear = adParts[0]
+  const adMonth = adParts.length >= 2 ? `${adParts[0]}-${adParts[1]}` : ''
+
+  for (const [year, ydata] of yearMap) {
+    const months = []
+    let yearActive = false
+    for (const [mkey, mdata] of ydata.months) {
+      const monthActive = mdata.days.some(d => d.date === ad)
+      if (monthActive) yearActive = true
+      // 保留之前的展开状态
+      const existing = expandedState.value.get(mkey)
+      months.push({
+        ...mdata,
+        active: monthActive,
+        expanded: existing !== undefined ? existing : false
+      })
+    }
+    const existing = expandedState.value.get(`y-${year}`)
+    years.push({
+      year,
+      months,
+      totalCount: ydata.totalCount,
+      active: yearActive,
+      expanded: existing !== undefined ? existing : false
+    })
+  }
+
+  return years
+})
+
+// 展开状态（Map<nodeKey, boolean>）
+const expandedState = ref(new Map())
+
+function toggleYear(year) {
+  const key = `y-${year.year}`
+  const newMap = new Map(expandedState.value)
+  newMap.set(key, !newMap.get(key))
+  expandedState.value = newMap
+}
+
+function toggleMonth(month) {
+  const newMap = new Map(expandedState.value)
+  newMap.set(month.key, !newMap.get(month.key))
+  expandedState.value = newMap
+}
+
+// activeDate 变化时自动展开祖先
+watch(activeDate, (newDate) => {
+  if (!newDate) return
+  const parts = newDate.split('-')
+  if (parts.length < 2) return
+  const year = parts[0]
+  const monthKey = `${parts[0]}-${parts[1]}`
+  const newMap = new Map(expandedState.value)
+  newMap.set(`y-${year}`, true)
+  newMap.set(monthKey, true)
+  expandedState.value = newMap
+})
 const filterStart = ref('')
 const filterEnd = ref('')
 const filterScrollRef = ref(null)
@@ -678,55 +805,42 @@ watch(() => props.result?.taskId, () => {
   background: var(--color-primary-bg);
 }
 
-.date-filter-chip.chip--active {
+/* 单日选中 */
+.date-filter-chip.chip--single {
   border-color: var(--color-primary);
   background: var(--color-primary);
   color: white;
 }
 
+/* 范围起始 */
 .date-filter-chip.chip--start {
   border-color: var(--color-primary);
   background: var(--color-primary);
   color: white;
-  border-radius: 8px 0 0 8px;
 }
 
+/* 范围终止 */
 .date-filter-chip.chip--end {
   border-color: var(--color-primary);
   background: var(--color-primary);
   color: white;
-  border-radius: 0 8px 8px 0;
 }
 
+/* 范围内（非起止） */
 .date-filter-chip.chip--in-range {
-  border-color: var(--color-primary-light);
-  background: var(--color-primary-bg);
-  border-radius: 0;
-  border-left: none;
-  border-right: none;
+  border-color: #A5B4FC;
+  background: #EEF2FF;
+  color: var(--color-primary-dark);
 }
 
-.date-filter-chip.chip--in-range:first-of-type {
-  border-left: 1.5px solid var(--color-primary-light);
-}
-
-.chip-date {
-  font-size: 0.68rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
-}
-
-.chip-count {
-  font-size: 0.6rem;
-  opacity: 0.7;
-  font-variant-numeric: tabular-nums;
-}
-
-.chip--active .chip-count,
+.chip--single .chip-count,
 .chip--start .chip-count,
 .chip--end .chip-count {
   opacity: 0.85;
+}
+
+.chip--in-range .chip-count {
+  opacity: 0.7;
 }
 
 .filter-summary {
@@ -809,16 +923,17 @@ watch(() => props.result?.taskId, () => {
   border-radius: 10px;
 }
 
-/* ========== 快速跳转 ========== */
+/* ========== 快速跳转（层级钻取） ========== */
 .quick-jump {
-  width: 110px;
+  width: 125px;
   flex-shrink: 0;
   border-left: 1px solid var(--color-border-light);
   background: var(--color-bg-card);
-  padding: 0.75rem 0.5rem;
+  padding: 0.6rem 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  user-select: none;
 }
 
 .quick-jump-title {
@@ -827,72 +942,144 @@ watch(() => props.result?.taskId, () => {
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  padding: 0 0.35rem 0.5rem;
+  padding: 0 0.5rem 0.5rem;
+  margin: 0 0.5rem 0.35rem;
   border-bottom: 1px solid var(--color-border-light);
-  margin-bottom: 0.35rem;
 }
 
-.quick-jump-list {
+.jump-tree {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  padding: 0 0.25rem;
 }
 
-.quick-jump-item {
+/* 树节点 */
+.jump-node {
+  position: relative;
+}
+
+.jump-node-btn {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.3rem 0.35rem;
-  border-radius: 6px;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.25rem 0.3rem;
+  border-radius: 5px;
   border: none;
   background: transparent;
   cursor: pointer;
   font-family: inherit;
   font-size: 0.68rem;
-  color: var(--color-text-muted);
-  transition: all 0.15s ease;
-  text-align: left;
-  width: 100%;
-}
-
-.quick-jump-item:hover {
-  background: var(--color-bg-hover);
   color: var(--color-text-secondary);
+  transition: all 0.12s ease;
+  text-align: left;
 }
 
-.quick-jump-item.jump--active {
-  background: var(--color-primary-bg);
+.jump-node-btn:hover {
+  background: var(--color-bg-hover);
+}
+
+/* 展开/折叠箭头 */
+.jump-caret {
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform 0.2s ease;
+}
+
+.node--expanded > .jump-node-btn .jump-caret {
+  transform: rotate(90deg);
+}
+
+/* 节点标签和计数 */
+.jump-node-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jump-node-count {
+  font-size: 0.58rem;
+  color: var(--color-text-muted);
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* 当前活跃祖先节点 */
+.node--active > .jump-node-btn {
   color: var(--color-primary-dark);
+  font-weight: 600;
+  background: var(--color-primary-bg);
 }
 
-.jump-dot {
-  width: 6px;
-  height: 6px;
+/* 子节点容器 */
+.jump-children {
+  padding-left: 0.8rem;
+  border-left: 1.5px solid var(--color-border-light);
+  margin-left: 0.5rem;
+}
+
+/* 年份节点 */
+.jump-year > .jump-node-btn {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* 月份节点 */
+.jump-month > .jump-node-btn {
+  font-size: 0.65rem;
+}
+
+/* 日期节点（叶子） */
+.jump-day {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.2rem 0.3rem;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.65rem;
+  color: var(--color-text-secondary);
+  transition: all 0.12s ease;
+  text-align: left;
+}
+
+.jump-day:hover {
+  background: var(--color-bg-hover);
+}
+
+.jump-day.node--active {
+  background: var(--color-primary);
+  color: white;
+  font-weight: 600;
+}
+
+.jump-day.node--active .jump-node-count {
+  color: rgba(255,255,255,0.7);
+}
+
+.jump-day-dot {
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--color-border);
   flex-shrink: 0;
   transition: all 0.2s;
 }
 
-.quick-jump-item:hover .jump-dot {
-  background: var(--color-primary-light);
-}
-
-.jump--active .jump-dot {
-  background: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
-}
-
-.jump-label {
-  flex: 1;
-  font-variant-numeric: tabular-nums;
-  font-weight: 500;
-}
-
-.jump-count {
-  font-size: 0.6rem;
-  opacity: 0.6;
-  font-variant-numeric: tabular-nums;
+.jump-day.node--active .jump-day-dot {
+  background: white;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
 }
 
 /* 空状态重置按钮 */
